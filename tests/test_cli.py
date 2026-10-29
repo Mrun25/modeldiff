@@ -290,3 +290,47 @@ def test_python_dash_m_entry_point(quickstart):
     )
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.startswith("OK:")
+
+
+@pytest.mark.parametrize(
+    ("extra", "tags", "expected_warning"),
+    [
+        ({"old-id": "unused", "another-old": "unused"}, [], "another-old, old-id"),
+        ({}, [], None),
+        ({}, ["--tag", "selected"], None),
+        ({"old-id": "unused"}, ["--tag", "selected"], "old-id"),
+    ],
+)
+def test_replay_warns_only_for_ids_absent_from_full_suite(
+    write_yaml, tmp_path, capsys, extra, tags, expected_warning
+):
+    suite = write_yaml(
+        "suite.yaml",
+        {
+            "suite": "replay-warning",
+            "cases": [
+                {
+                    "id": "keep",
+                    "type": "exact",
+                    "input": "x",
+                    "expected": "ok",
+                    "tags": ["selected"],
+                },
+                {"id": "filtered", "type": "exact", "input": "y", "expected": "ok"},
+            ],
+        },
+    )
+    outputs = write_yaml("outputs.yaml", {"outputs": {"keep": "ok", "filtered": "ok", **extra}})
+    config = write_yaml(
+        "config.yaml", {"id": "replay", "provider": "replay", "outputs": outputs.name}
+    )
+    result = tmp_path / "result.json"
+    assert main(["run", str(suite), "-c", str(config), "-o", str(result), *tags]) == 0
+    error = capsys.readouterr().err
+    if expected_warning is None:
+        assert error == ""
+    else:
+        assert error == f"warning: {outputs} has outputs for unknown case(s): {expected_warning}\n"
+    records = json.loads(result.read_text())["results"]
+    assert len(records) == (1 if tags else 2)
+    assert all(record["status"] == "pass" for record in records)

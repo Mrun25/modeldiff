@@ -76,6 +76,11 @@ class ReplayProvider:
             data.get("metadata", {}) if isinstance(data.get("metadata"), dict) else {}
         )
 
+    @property
+    def recorded_case_ids(self) -> frozenset[str]:
+        """Case IDs available in the recorded-output file."""
+        return frozenset(self._outputs)
+
     def generate(self, case: TestCase) -> ProviderResponse:
         entry = self._outputs.get(case.id)
         if entry is None:

@@ -218,6 +218,8 @@ A recorded-output file maps case IDs to outputs. An entry can be a plain string 
 }}
 ```
 
+Replay runs warn on stderr when a recorded-output file contains case IDs that are not in the suite. Cases that exist in the suite but are excluded by `--tag` do not trigger this warning. The warning does not change the exit code.
+
 When `latency_ms` is present, ModelDiff uses it and marks the duration as `recorded`. Otherwise it measures the call and marks it `measured`. Reports state which source each run used.
 
 ## Using a local model (optional)

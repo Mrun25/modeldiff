@@ -20,7 +20,7 @@ from modeldiff.cases import load_suite
 from modeldiff.compare import compare_runs
 from modeldiff.config import CAPTURE_MODES, load_config
 from modeldiff.errors import ModelDiffError, ValidationError
-from modeldiff.providers import build_provider
+from modeldiff.providers import ReplayProvider, build_provider
 from modeldiff.report import FORMATS, render_comparison, render_run
 from modeldiff.results import load_run, save_run
 from modeldiff.runner import run_suite
@@ -71,7 +71,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     for plugin in args.plugin:
         load_plugin(plugin)
-    suite = load_suite(args.suite).filter(args.tag)
+    full_suite = load_suite(args.suite)
+    suite = full_suite.filter(args.tag)
     if not suite.cases:
         raise ValidationError(args.suite, [f"no cases match tag(s): {', '.join(args.tag)}"])
     config = load_config(args.config)
@@ -80,6 +81,14 @@ def cmd_run(args: argparse.Namespace) -> int:
             config.id, config.provider, config.settings, args.capture, config.base_dir
         )
     provider = build_provider(config)
+    if isinstance(provider, ReplayProvider):
+        unknown_ids = provider.recorded_case_ids - {case.id for case in full_suite.cases}
+        if unknown_ids:
+            print(
+                f"warning: {provider.path} has outputs for unknown case(s): "
+                + ", ".join(sorted(unknown_ids)),
+                file=sys.stderr,
+            )
     run = run_suite(suite, config, provider, enforce_performance=args.enforce_performance)
     save_run(run, args.output)
     print(render_run(run, "text"))
