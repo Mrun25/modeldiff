@@ -218,3 +218,63 @@ def test_run_report_formats():
     assert render_run(run).startswith("s @ cfg: 1/2 passed, 1 failed, 0 errors")
     assert "| `b` | exact | fail | nope |" in render_run(run, "markdown")
     assert json.loads(render_run(run, "json"))["config"]["id"] == "cfg"
+
+
+@pytest.mark.parametrize("fmt", ["text", "markdown"])
+def test_candidate_warnings_show_only_new_warnings_as_new(fmt):
+    base, cand = case("warned", "pass"), case("warned", "pass")
+    base.warnings = ["existing warning"]
+    cand.warnings = ["existing warning", "latency limit exceeded"]
+    report = render_comparison(compare_runs(make_run("b", base), make_run("c", cand)), fmt)
+    assert "Warnings" in report
+    assert "warned" in report
+    assert "existing warning (new)" not in report
+    assert "existing warning" in report
+    assert "latency limit exceeded (new)" in report
+
+
+def test_comparison_json_preserves_both_warning_lists():
+    base, cand = case("warned", "pass"), case("warned", "pass")
+    base.warnings = ["old warning"]
+    cand.warnings = ["new warning"]
+    data = json.loads(
+        render_comparison(compare_runs(make_run("b", base), make_run("c", cand)), "json")
+    )
+    assert data["cases"][0]["baseline_warnings"] == ["old warning"]
+    assert data["cases"][0]["candidate_warnings"] == ["new warning"]
+
+
+@pytest.mark.parametrize("fmt", ["text", "markdown"])
+def test_no_candidate_warnings_adds_no_warning_section(fmt):
+    base, cand = case("clean", "pass"), case("clean", "pass")
+    base.warnings = ["resolved warning"]
+    assert "Warnings" not in render_comparison(
+        compare_runs(make_run("b", base), make_run("c", cand)), fmt
+    )
+
+
+def test_warning_on_case_missing_from_baseline_is_new():
+    cand = case("new-case", "pass")
+    cand.warnings = ["latency limit exceeded"]
+    comp = compare_runs(make_run("b"), make_run("c", cand))
+    assert comp.cases[0].baseline_warnings == []
+    assert "latency limit exceeded (new)" in render_comparison(comp)
+
+
+@pytest.mark.parametrize("fmt", ["text", "markdown"])
+def test_same_warning_in_both_runs_is_not_new(fmt):
+    base, cand = case("same", "pass"), case("same", "pass")
+    base.warnings = ["existing warning"]
+    cand.warnings = ["existing warning"]
+    report = render_comparison(compare_runs(make_run("b", base), make_run("c", cand)), fmt)
+    assert "existing warning" in report
+    assert "(new)" not in report
+
+
+def test_warnings_on_missing_candidate_are_preserved_in_json():
+    base = case("gone", "pass")
+    base.warnings = ["old warning"]
+    comp = compare_runs(make_run("b", base), make_run("c"))
+    assert comp.to_dict()["cases"][0]["baseline_warnings"] == ["old warning"]
+    assert comp.to_dict()["cases"][0]["candidate_warnings"] == []
+    assert comp.regressions == []

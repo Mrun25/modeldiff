@@ -114,6 +114,9 @@ Classification changes (2):
   sentiment-positive: 'neutral' -> 'positive'
   intent-billing: 'billing' -> 'technical'
 
+Warnings:
+  summary-length: latency 1720.0 ms exceeds max_latency_ms 1500 (new)
+
 Latency (median over 9 cases): 420.0 ms -> 450.0 ms (+7.1%; baseline recorded, candidate recorded)
 Slower than +25%:
   summary-length: 900.0 ms -> 1720.0 ms
@@ -298,6 +301,8 @@ modeldiff schema {suite,config,result} [--output FILE]
 | 0 | Success. For `compare`, no regressions. |
 | 1 | `compare` found regressions (or flagged slowdowns with `--fail-on-latency`); `run --fail-on-failure` saw a failing or erroring case. |
 | 2 | Invalid input: malformed suite, config, or result file, or bad arguments. |
+
+Comparison reports show candidate per-case warnings, with `(new)` marking warnings absent from the baseline. JSON comparisons include `baseline_warnings` and `candidate_warnings` for every case. Warnings do not change regression counts or exit codes.
 
 `compare` refuses to compare runs of different suites. If the case definitions differ (the `suite_sha256` in the result files does not match), it also refuses unless you pass `--allow-suite-mismatch`. `python -m modeldiff` works the same as `modeldiff`.
 
